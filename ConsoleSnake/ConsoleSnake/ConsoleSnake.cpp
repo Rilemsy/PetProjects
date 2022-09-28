@@ -47,6 +47,7 @@ class GameSpace {
 public:
     GameSpace();
     int Update(Snake &snake);
+    void PrintScore();
     friend Snake::Snake(GameSpace &gameSpace);
     friend int Snake::Moving(GameSpace& gameSpace);
     friend void Snake::ControlMove(GameSpace& gameSpace, char);
@@ -55,21 +56,24 @@ public:
 
 
 private:
-    static const int leftBorder = 0, rightBorder = 12, upBorder = 12, downBorder = 0;
+    static const int leftBorder = 0, rightBorder = 15, upBorder = 15, downBorder = 0;
     unsigned char cellArray[upBorder][rightBorder];
-
+    int difficulty = 600;  // time (in ms), before the snake takes a move
+    int score = 0;
+    time_t intervalCtrl;
+    int trapTime = 10; // trap spawn time
 };
 
 GameSpace::GameSpace() {
+    intervalCtrl = time(0);
                                                 // fill borders
     for (int i = 0; i < upBorder; i++) {
         cellArray[i][0] = '|';
         cellArray[i][rightBorder - 1] = '|';
     }
     for (int i = 0; i < rightBorder; i++) {
-        //cellArray[0][i] = '_';
-        cellArray[upBorder - 1][i] = '-';
-        cellArray[0][i] = '-';
+        cellArray[upBorder - 1][i] = 'W';
+        cellArray[0][i] = 'M';
     }
     
     for (int i = 1; i < rightBorder - 1; i++) { // fill main space
@@ -90,7 +94,6 @@ GameSpace::GameSpace() {
         randY = rand() % (upBorder - 2) + 1;
         randX = rand() % (rightBorder - 2) + 1;
     } while (true);
-    //cellArray[8][8] = 'O';
 
 }
 
@@ -105,41 +108,34 @@ int GameSpace::Update(Snake &snake) {
         cellArray[snake.head.posY][snake.head.posX] = PART;
         snake.Eating(*this);
         break;
-    case '-':
+    case 'M':
+    case 'W':
     case '|':
+    case 'X':
     case 15 :
         return 0;
         break;
     }
     
+    time_t curTime = time(0);
+    if (((curTime - intervalCtrl) % trapTime == 0) && (intervalCtrl < curTime)) {
+        intervalCtrl += trapTime;
+        int randY = rand() % (upBorder - 2) + 1;
+            int randX = rand() % (rightBorder - 2) + 1;
+            do {
+                if (cellArray[randY][randX] == ' ')
+                {
+                    cellArray[randY][randX] = 'X';
+                        break;
+                }
+                randY = rand() % (upBorder - 2) + 1;
+                    randX = rand() % (rightBorder - 2) + 1;
+            } while (true);
+    }
     
-    /*for (auto it = snake.snakeBody.begin(); it != snake.snakeBody.end(); it++) {
-        switch (cellArray[it->posY][it->posX]) {
-        case ' ': 
-            cellArray[it->posY][it->posX] = PART;
-            break;
-        case 'O':
-            cellArray[it->posY][it->posX] = PART;
-            snake.Eating(*this);
-            break;
-        case '-':
-        case '|': 
-        //case 15 :
-            return 0;
-            break;
-        }
-       
-
-
-
-
-        //std::cout << it->posY << '\n';
-        //std::cout << it->posX << '\n';
-        
-        //std::cout << "ep" << '\n';
-    }*/
-        
     
+    std::cout << "Score : " << score <<"\n\n";
+
     for (int i = 0; i < rightBorder; i++) {    // print gameSpace
         for (int j = 0; j < upBorder; j++) {
             std::cout << cellArray[i][j];
@@ -150,7 +146,6 @@ int GameSpace::Update(Snake &snake) {
 }
 
 Snake::Snake(GameSpace &gameSpace) {
-    //int rBord = gameSpace.rightBorder;
     Point startPoint;
     startPoint.posX = gameSpace.rightBorder / 2;
     startPoint.posY = gameSpace.upBorder / 2;
@@ -164,30 +159,42 @@ Snake::Snake(GameSpace &gameSpace) {
 }
 
 void Snake::ControlMove(GameSpace& gameSpace, char c) {
-    //char c = 0;
-    //std::cout << "MOVEEEEsssssssssssss\n";
-    //c = _getch();
-    //std::cout << "MOVEEEEppppppppp\n";
-    //auto it = snakeBody.begin();
-    //it = std::next(it, 1);
     switch (c) {
-    case 'w':   // head.posY--;  
-        //tail = *it;       
-        OneMove(gameSpace, 0, -1);
-        direct = W;
-        //std::cout << snakeBody.begin()->posY << "\n";
+    case 'w':       
+        if (direct != S) {
+            OneMove(gameSpace, 0, -1);
+            direct = W;
+        }
+        else {
+            OneMove(gameSpace, 0, 1);
+        }
         break;
-    case 's':   //head.posY++;
-        OneMove(gameSpace, 0, 1);
-        direct = S;
+    case 's':   
+        if (direct != W) {
+            OneMove(gameSpace, 0, 1);
+            direct = S;
+        }
+        else {
+            OneMove(gameSpace, 0, -1);
+        }           
         break;
-    case 'a':   // head.posX--;
-        OneMove(gameSpace, -1, 0);
-        direct = A;
+    case 'a':   
+        if (direct != D) {
+            OneMove(gameSpace, -1, 0);
+            direct = A;
+        }
+        else {
+            OneMove(gameSpace, 1, 0);
+        }           
         break;
-    case 'd':    //head.posX++;
-        OneMove(gameSpace, 1, 0);
-        direct = D;
+    case 'd':    
+        if (direct != A) {
+            OneMove(gameSpace, 1, 0);
+            direct = D;
+        }
+        else {
+            OneMove(gameSpace, -1, 0);
+        }           
         break;
     default:
         ;
@@ -214,7 +221,7 @@ int Snake::Moving(GameSpace &gameSpace) {
         c = _getch();
         });
     t.detach();
-    Sleep(1000);
+    Sleep(gameSpace.difficulty);
     if (c != 11) {
         ControlMove(gameSpace, c);
     }
@@ -250,10 +257,13 @@ void Snake::Eating(GameSpace& gameSpace) {
         randY = rand() % (gameSpace.upBorder - 2) + 1;
         randX = rand() % (gameSpace.rightBorder - 2) + 1;
     } while (true);
+
+    gameSpace.score += 10;
+    if (gameSpace.score % 50 == 0) gameSpace.difficulty -= 100;
 }
 
 void gameOver() {
-    std::cout << "\n\n";
+    std::cout << '\n';
     std::cout << "  Y     Y      O O       U      U           L         O O       S S S     E E E   \n";
     std::cout << "   Y   Y      O   O      U      U           L        O   O     S          E       \n";
     std::cout << "    Y Y      O     O     U      U           L       O     O     S S S     E E     \n";
@@ -261,36 +271,23 @@ void gameOver() {
     std::cout << "     Y         O O         U U U            L L L     O O       S S S     E E E \n\n";
 }
 
+void GameSpace::PrintScore () {
+    std::cout << "SCORE : " << score<<'\n';
+}
+
 int main()
 {
-
-    //std::cout << "\033[5;35;46m Hello World!fjwo";
-
     GameSpace gameSpace;
     Snake snake(gameSpace);
     gameSpace.Update(snake);
 
-    time_t workTime = time(0) + 60;
-    //time_t moveTime = time(0) + 1;
-
-    while (time_t curTime = time(0) < workTime) {
-        
-        /*if (curTime == moveTime) {
-            
-        }*/
-        //snake.Moving(gameSpace);
-        //snake.ControlMove(gameSpace);
-        //snake.IndependentMoving(gameSpace);
+    while (true) {
         if (!snake.Moving(gameSpace)) {
+            gameSpace.PrintScore();
             gameOver();
             return 0;
-        }
-        //std::cout << _getch() << '\n';
+        }       
     }
-    //char c = _getch();
-    //std::cout << c << '\n';
-    //system("pause");
-
     return 0;
 }
 
